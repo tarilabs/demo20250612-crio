@@ -64,7 +64,9 @@ jobs:
         make quick
         
         # Get the base image tag that was built
-        BASE_IMAGE_TAG=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "gcr.io/k8s-staging-kind/base" | head -1)
+        docker images
+        docker images --format "{{.Repository}}:{{.Tag}}"
+        BASE_IMAGE_TAG=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "ghcr.io/tarilabs/demo20250612-crio/kindnode-crio" | head -1)
         echo "BASE_IMAGE_TAG=$BASE_IMAGE_TAG" >> $GITHUB_ENV
         echo "Built base image: $BASE_IMAGE_TAG"
 
