@@ -189,10 +189,6 @@ crictl version
 4. Test the changes by running the GitHub Action
 5. Submit a pull request
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
 ## References
 
 - [Original Guide](https://rkiselenko.dev/blog/crio-in-kind/) by Roman Kiselenko
