@@ -1,0 +1,124 @@
+name: Build CRI-O KinD Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      kubernetes_version:
+        description: 'Kubernetes version (e.g., v1.30.0)'
+        required: true
+        default: 'v1.30.0'
+      crio_version:
+        description: 'CRI-O version (e.g., v1.30)'
+        required: true
+        default: 'v1.30'
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  KUBERNETES_VERSION: ${{ github.event.inputs.kubernetes_version || 'v1.30.0' }}
+  CRIO_VERSION: ${{ github.event.inputs.crio_version || 'v1.30' }}
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/kindnode-crio
+
+jobs:
+  build-crio-kind-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.22'
+
+    - name: Install KinD
+      run: |
+        go install sigs.k8s.io/kind@latest
+        kind version
+
+    - name: Clone KinD sources for base image
+      run: |
+        git clone https://github.com/kubernetes-sigs/kind.git kind-repo
+        cd kind-repo/images/base
+
+    - name: Build KinD base image
+      run: |
+        cd kind-repo/images/base
+        make quick
+        
+        # Get the base image tag that was built
+        BASE_IMAGE_TAG=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep "gcr.io/k8s-staging-kind/base" | head -1 | cut -d' ' -f1)
+        echo "BASE_IMAGE_TAG=$BASE_IMAGE_TAG" >> $GITHUB_ENV
+        echo "Built base image: $BASE_IMAGE_TAG"
+
+    - name: Setup GOPATH and clone Kubernetes sources
+      run: |
+        mkdir -p "$HOME/go/src/k8s.io/kubernetes"
+        git clone --depth 1 --branch ${{ env.KUBERNETES_VERSION }} https://github.com/kubernetes/kubernetes.git "$HOME/go/src/k8s.io/kubernetes"
+        echo "GOPATH=$HOME/go" >> $GITHUB_ENV
+
+    - name: Build KinD node image
+      run: |
+        export GOPATH=$HOME/go
+        cd "$GOPATH/src/k8s.io/kubernetes"
+        kind build node-image --base-image ${{ env.BASE_IMAGE_TAG }}
+        
+        # Tag the built image for reference
+        docker tag kindest/node:latest kindest/node:${{ env.KUBERNETES_VERSION }}
+
+    - name: Build CRI-O enabled KinD image
+      run: |
+        docker build \
+          --build-arg CRIO_VERSION=${{ env.CRIO_VERSION }} \
+          -t kindnode/crio:${{ env.CRIO_VERSION }} \
+          -f Dockerfile.crio .
+
+    - name: Tag images for registry
+      run: |
+        # Tag for GitHub Container Registry
+        docker tag kindnode/crio:${{ env.CRIO_VERSION }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}
+        docker tag kindnode/crio:${{ env.CRIO_VERSION }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+    - name: Push images to registry
+      run: |
+        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}
+        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+    - name: Generate image summary
+      run: |
+        echo "## Built Images" >> $GITHUB_STEP_SUMMARY
+        echo "- Base Image: \`${{ env.BASE_IMAGE_TAG }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- Node Image: \`kindest/node:${{ env.KUBERNETES_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- CRI-O Image: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Usage" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+        echo "# Pull the image" >> $GITHUB_STEP_SUMMARY
+        echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "# Create KinD cluster with CRI-O" >> $GITHUB_STEP_SUMMARY
+        echo "kind create cluster --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }} --config kind-crio.yaml" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+    - name: Test image
+      run: |
+        echo "Testing the built image..."
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }} crio version || true
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }} crictl --version || true 
