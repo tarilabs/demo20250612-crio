@@ -8,12 +8,12 @@ The GitHub Action builds a custom KinD node image with CRI-O container runtime i
 
 ## Features
 
-- ✅ Builds KinD base image from source
-- ✅ Creates Kubernetes node image with specified version
+- 🤔 Builds KinD base image from source
+- 🤔 Creates Kubernetes node image with specified version
 - ✅ Installs and configures CRI-O runtime
 - ✅ Publishes images to GitHub Container Registry
 - ✅ Supports configurable Kubernetes and CRI-O versions
-- ✅ Includes testing and validation steps
+- 🤔 Includes testing and validation steps
 
 ## Usage
 

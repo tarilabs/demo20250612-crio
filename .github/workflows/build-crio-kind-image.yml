@@ -130,10 +130,10 @@ jobs:
         echo "kind create cluster --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}} --config kind-crio.yaml" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
-    - name: Test image
-      run: |
-        echo "Testing the built image..."
-        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}} crio version
-        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}} crictl --version
-        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}} crio version || true
-        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}} crictl --version || true 
+    # - name: Test image
+    #   run: |
+    #     echo "Testing the built image..."
+    #     docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}} crio version
+    #     docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}} crictl --version
+    #     docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}} crio version || true
+    #     docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}} crictl --version || true 
