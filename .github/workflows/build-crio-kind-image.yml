@@ -40,6 +40,10 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Introduction
+      run: | 
+        uname -a
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
