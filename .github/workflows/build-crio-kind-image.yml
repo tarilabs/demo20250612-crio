@@ -48,10 +48,10 @@ jobs:
       with:
         go-version: '1.22'
 
-    - name: Install KinD
-      run: |
-        go install sigs.k8s.io/kind@latest
-        kind version
+    # - name: Install KinD
+    #   run: |
+    #     go install sigs.k8s.io/kind@latest
+    #     kind version
 
     - name: Clone KinD sources for base image
       run: |
@@ -64,7 +64,7 @@ jobs:
         make quick
         
         # Get the base image tag that was built
-        BASE_IMAGE_TAG=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep "gcr.io/k8s-staging-kind/base" | head -1 | cut -d' ' -f1)
+        BASE_IMAGE_TAG=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "gcr.io/k8s-staging-kind/base" | head -1)
         echo "BASE_IMAGE_TAG=$BASE_IMAGE_TAG" >> $GITHUB_ENV
         echo "Built base image: $BASE_IMAGE_TAG"
 
