@@ -24,7 +24,14 @@ env:
 
 jobs:
   build-crio-kind-image:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: amd64
+          - os: ubuntu-latest
+            arch: arm64
     permissions:
       contents: read
       packages: write
@@ -95,32 +102,34 @@ jobs:
     - name: Tag images for registry
       run: |
         # Tag for GitHub Container Registry
-        docker tag kindnode/crio:${{ env.CRIO_VERSION }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}
-        docker tag kindnode/crio:${{ env.CRIO_VERSION }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        docker tag kindnode/crio:${{ env.CRIO_VERSION }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}}
+        # docker tag kindnode/crio:${{ env.CRIO_VERSION }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
     - name: Push images to registry
       run: |
-        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}
-        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}}
+        # docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
     - name: Generate image summary
       run: |
         echo "## Built Images" >> $GITHUB_STEP_SUMMARY
         echo "- Base Image: \`${{ env.BASE_IMAGE_TAG }}\`" >> $GITHUB_STEP_SUMMARY
         echo "- Node Image: \`kindest/node:${{ env.KUBERNETES_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- CRI-O Image: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- CRI-O Image: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}}\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Usage" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
         echo "# Pull the image" >> $GITHUB_STEP_SUMMARY
-        echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}" >> $GITHUB_STEP_SUMMARY
+        echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "# Create KinD cluster with CRI-O" >> $GITHUB_STEP_SUMMARY
-        echo "kind create cluster --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }} --config kind-crio.yaml" >> $GITHUB_STEP_SUMMARY
+        echo "kind create cluster --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}} --config kind-crio.yaml" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
     - name: Test image
       run: |
         echo "Testing the built image..."
-        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }} crio version || true
-        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }} crictl --version || true 
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}} crio version
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}} crictl --version
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}} crio version || true
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}} crictl --version || true 
