@@ -4,21 +4,21 @@ on:
   workflow_dispatch:
     inputs:
       kubernetes_version:
-        description: 'Kubernetes version (e.g., v1.30.0)'
+        description: 'Kubernetes version (e.g., v1.33)'
         required: true
-        default: 'v1.33.1'
+        default: 'v1.33'
       crio_version:
-        description: 'CRI-O version (e.g., v1.30)'
+        description: 'CRI-O version (e.g., v1.33)'
         required: true
-        default: 'v1.33.1'
+        default: 'v1.33'
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
 
 env:
-  KUBERNETES_VERSION: ${{ github.event.inputs.kubernetes_version || 'v1.33.1' }}
-  CRIO_VERSION: ${{ github.event.inputs.crio_version || 'v1.33.1' }}
+  KUBERNETES_VERSION: ${{ github.event.inputs.kubernetes_version || 'v1.33' }}
+  CRIO_VERSION: ${{ github.event.inputs.crio_version || 'v1.33' }}
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/kindnode-crio
 
