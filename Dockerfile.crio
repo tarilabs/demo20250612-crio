@@ -1,18 +1,28 @@
 FROM kindest/node:latest
 
-ARG CRIO_VERSION
-ARG PROJECT_PATH=prerelease:/$CRIO_VERSION
+ARG CRIO_VERSION=v1.33.1
+ARG KUBERNETES_VERSION=v1.33.1
+# ARG PROJECT_PATH=prerelease:/$CRIO_VERSION
+ARG PROJECT_PATH=stable:/$CRIO_VERSION
 
 RUN echo "Installing Packages ..." \
     && apt-get clean \
     && apt-get update -y \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    software-properties-common vim gnupg \
-    && echo "Installing cri-o ..." \
-    && curl -fsSL https://pkgs.k8s.io/addons:/cri-o:/$PROJECT_PATH/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/cri-o-apt-keyring.gpg \
-    && echo "deb [signed-by=/etc/apt/keyrings/cri-o-apt-keyring.gpg] https://pkgs.k8s.io/addons:/cri-o:/$PROJECT_PATH/deb/ /" | tee /etc/apt/sources.list.d/cri-o.list \
-    && apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get --option=Dpkg::Options::=--force-confdef install -y cri-o \
-    && sed -i 's/containerd/crio/g' /etc/crictl.yaml \
-    && systemctl disable containerd \
-    && systemctl enable crio 
+    software-properties-common vim gnupg
+
+RUN echo "setting up cri-o repos..." \
+    && curl -fsSL https://pkgs.k8s.io/core:/stable:/$KUBERNETES_VERSION/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$KUBERNETES_VERSION/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list \
+    && curl -fsSL https://download.opensuse.org/repositories/isv:/cri-o:/stable:/$CRIO_VERSION/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/cri-o-apt-keyring.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/cri-o-apt-keyring.gpg] https://download.opensuse.org/repositories/isv:/cri-o:/stable:/$CRIO_VERSION/deb/ /" | tee /etc/apt/sources.list.d/cri-o.list \
+    && apt-get update -y
+
+RUN echo "Installing cio-o" \
+     && DEBIAN_FRONTEND=noninteractive apt-get --option=Dpkg::Options::=--force-confdef install -y cri-o 
+ 
+RUN echo "Enabling CRIO ..." \
+     && sed -i 's/containerd/crio/g' /etc/crictl.yaml \ 
+     && rm -f /var/run/crio/crio.sock \
+     && systemctl disable containerd \
+     && systemctl enable crio

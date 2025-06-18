@@ -6,19 +6,19 @@ on:
       kubernetes_version:
         description: 'Kubernetes version (e.g., v1.30.0)'
         required: true
-        default: 'v1.30.0'
+        default: 'v1.33.1'
       crio_version:
         description: 'CRI-O version (e.g., v1.30)'
         required: true
-        default: 'v1.30'
+        default: 'v1.33.1'
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
 
 env:
-  KUBERNETES_VERSION: ${{ github.event.inputs.kubernetes_version || 'v1.30.0' }}
-  CRIO_VERSION: ${{ github.event.inputs.crio_version || 'v1.30' }}
+  KUBERNETES_VERSION: ${{ github.event.inputs.kubernetes_version || 'v1.33.1' }}
+  CRIO_VERSION: ${{ github.event.inputs.crio_version || 'v1.33.1' }}
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/kindnode-crio
 
