@@ -1,0 +1,94 @@
+name: Build CRI-O KinD Image (from existing KinD image)
+
+on:
+  workflow_dispatch:
+    inputs:
+      kubernetes_version:
+        description: 'Kubernetes version (e.g., v1.33)'
+        required: true
+        default: 'v1.33'
+      crio_version:
+        description: 'CRI-O version (e.g., v1.33)'
+        required: true
+        default: 'v1.33'
+      from_kind_image:
+        description: 'kind FROM image (e.g., kindest/node:v1.33.1)'
+        required: true
+        default: 'kindest/node:v1.33.1'
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  KUBERNETES_VERSION: ${{ github.event.inputs.kubernetes_version || 'v1.33' }}
+  CRIO_VERSION: ${{ github.event.inputs.crio_version || 'v1.33' }}
+  FROM_KIND_IMAGE: ${{ github.event.inputs.from_kind_image || 'kindest/node:v1.33.1' }}
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/kindnode-crio
+
+jobs:
+  build-crio-kind-image-from-existing-kind:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: amd64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Introduction
+      run: | 
+        uname -a
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build CRI-O enabled KinD image
+      run: |
+        docker build \
+          --build-arg CRIO_VERSION=${{ env.CRIO_VERSION }} \
+          --build-arg FROM_KIND_IMAGE=${{ env.FROM_KIND_IMAGE }} \
+          --build-arg KUBERNETES_VERSION=${{ env.KUBERNETES_VERSION }} \
+          -t kindnode/crio:${{ env.CRIO_VERSION }} \
+          -f Dockerfile.criofrom .
+
+    - name: Tag images for registry
+      run: |
+        # Tag for GitHub Container Registry
+        docker tag kindnode/crio:${{ env.CRIO_VERSION }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}}
+        # docker tag kindnode/crio:${{ env.CRIO_VERSION }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+    - name: Push images to registry
+      run: |
+        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}}
+        # docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+    - name: Generate image summary
+      run: |
+        echo "## Built Images" >> $GITHUB_STEP_SUMMARY
+        echo "- CRI-O Image: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Usage" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+        echo "# Pull the image" >> $GITHUB_STEP_SUMMARY
+        echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "# Create KinD cluster with CRI-O" >> $GITHUB_STEP_SUMMARY
+        echo "kind create cluster --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.CRIO_VERSION }}-${{matrix.arch}} --config kind-crio.yaml" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
